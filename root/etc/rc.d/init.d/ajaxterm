@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+# Init file for ajaxterm
+# mweinber 2007
+#
+
+source /etc/rc.d/init.d/functions
+
+RETVAL=0
+progpath="/opt/ajaxterm"
+prog="ajaxterm.py"
+desc="Ajaxterm daemon"
+pidfile=/var/run/ajaxterm.pid
+
+start() {
+	if [ "`/sbin/e-smith/config getprop Ajaxterm allowOnlyLocalhost`" != "no" ] ; then
+		COMMAND=/opt/ajaxterm/login-localhost.pl
+	else
+		COMMAND=/opt/ajaxterm/login-allhosts.pl
+	fi
+	WIDTH=`/sbin/e-smith/config getprop Ajaxterm width`
+	test -z $WIDTH && WIDTH=80
+	HEIGHT=`/sbin/e-smith/config getprop Ajaxterm height`
+	test -z $HEIGHT && HEIGHT=25
+	INDEXFILE="$WIDTH"x"$HEIGHT.html"
+	/bin/sed -e "s/ajaxterm.Terminal(\"term\",80,25)/ajaxterm.Terminal(\"term\",$WIDTH,$HEIGHT)/" \
+		< /opt/ajaxterm/ajaxterm.html \
+		> "/opt/ajaxterm/$INDEXFILE"
+	PORT=`/sbin/e-smith/config getprop Ajaxterm servicePort`
+	test -z $PORT && PORT=8022
+	userid=`/usr/bin/id -u ajaxterm`
+	pids=`ps -o pid=''  -C "python /opt/ajaxterm/ajaxterm.py"`
+	if [ -z $pids -a $userid ] ; then
+		echo -n $"Starting $desc ($prog): "
+		daemon $progpath/$prog -d  --uid=$userid --port=$PORT --pidfile=$pidfile --index=$INDEXFILE --command=$COMMAND
+		RETVAL=$?
+		echo
+		[ $RETVAL -eq 0 ] && touch /var/lock/subsys/$prog
+		return $RETVAL
+	fi
+}
+
+stop() {
+	pids=`ps -o pid=''  -C "python /opt/ajaxterm/ajaxterm.py"`
+	if [ ! -z $pids ] ; then
+		echo -n $"Shutting down $desc ($prog)"
+		kill -9 $pids &>/dev/null
+		sleep 3
+		RETVAL=$?
+		echo
+		[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/$prog
+		return $RETVAL
+	fi
+}
+
+restart() {
+	stop
+	start
+}
+
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	restart
+	;;
+  status)
+	status $prog
+	RETVAL=$?
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|status}"
+	RETVAL=1
+esac
+
+exit $RETVAL

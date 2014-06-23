@@ -1,0 +1,26 @@
+{
+if ($port eq "443")
+	{
+	# 64 or i386
+	my $fileauth = -f "/usr/lib64/httpd/modules/pwauth" ? "/usr/lib64/httpd/modules/pwauth" : "/usr/lib/httpd/modules/pwauth";
+
+	$port=$Ajaxterm{servicePort}||8022;
+	$users=$Ajaxterm{basicAuthUsers}||'admin';
+	$webalias=$Ajaxterm{webAlias}||'ajaxterm';
+	$OUT .= "    # Ajaxterm\n";
+	$OUT .= "    ProxyPass /$webalias/ http://127.0.0.1:$port/\n";
+	$OUT .= "    ProxyPassReverse /$webalias/ http://127.0.0.1:$port/\n";
+	$OUT .= "    AddExternalAuth pwauth $fileauth\n";
+	$OUT .= "    SetExternalAuthMethod pwauth pipe\n";
+	$OUT .= "    <Location /$webalias>\n";
+	$OUT .= "        order deny,allow\n";
+	$OUT .= "        deny from all\n";
+	$OUT .= "        allow from all\n";
+	$OUT .= "        AuthName \"$webalias\"\n";
+	$OUT .= "        AuthType Basic\n";
+	$OUT .= "        AuthExternal pwauth\n";
+	$OUT .= "        require user $users\n";
+	$OUT .= "        Satisfy all\n";
+	$OUT .= "    </Location>\n";
+	}
+}
